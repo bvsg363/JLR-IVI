@@ -296,7 +296,7 @@ class DrmHwcTwo : public hwc2_device_t {
   static int32_t DisplayHook(hwc2_device_t *dev, hwc2_display_t display_handle,
                              Args... args) {
     
-    ALOGI("BVSG :: Displayhook");
+    // ALOGI("BVSG :: Displayhook");
     HwcDisplay *display = GetDisplay(toDrmHwcTwo(dev), display_handle);
     if (!display){
       ALOGI("BVSG :: DisplayHook:: Null Display");
@@ -309,7 +309,7 @@ class DrmHwcTwo : public hwc2_device_t {
   template <typename HookType, HookType func, typename... Args>
   static int32_t LayerHook(hwc2_device_t *dev, hwc2_display_t display_handle,
                            hwc2_layer_t layer_handle, Args... args) {
-    ALOGI("BVSG :: Displayhook");
+    // ALOGI("BVSG :: Displayhook");
     HwcDisplay *display = GetDisplay(toDrmHwcTwo(dev), display_handle);
     if (!display){
       ALOGI("BVSG :: LayerHook:: Null Display");

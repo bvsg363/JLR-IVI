@@ -62,38 +62,39 @@ HWC2::Error DrmHwcTwo::CreateDisplay(hwc2_display_t displ,
                                      HWC2::DisplayType type) {
   DrmDevice *drm = resource_manager_.GetDrmDevice(displ);
   std::shared_ptr<Importer> importer = resource_manager_.GetImporter(displ);
-  // if (!drm || !importer) {
-  //   ALOGE("drmhwctwo :: Failed to get a valid drmresource and importer");
-  //   return HWC2::Error::NoResources;
-  // }
-  ALOGW("BVSG:: drmhwctwo :: Invalid drmresource and importer -> dummy -> neglected");
+  if (!drm || !importer) {
+    ALOGE("drmhwctwo :: Failed to get a valid drmresource and importer");
+    return HWC2::Error::NoResources;
+  }
+  // ALOGW("BVSG:: drmhwctwo :: Invalid drmresource and importer -> dummy -> neglected");
   displays_.emplace(std::piecewise_construct, std::forward_as_tuple(displ),
                     std::forward_as_tuple(&resource_manager_, drm, importer,
                                           displ, type));
 
-  // DrmCrtc *crtc = drm->GetCrtcForDisplay(static_cast<int>(displ));
-  // if (!crtc) {
-  //   ALOGE("Failed to get crtc for display %d", static_cast<int>(displ));
-  //   return HWC2::Error::BadDisplay;
-  // }
-  // std::vector<DrmPlane *> display_planes;
-  // for (auto &plane : drm->planes()) {
-  //   if (plane->GetCrtcSupported(*crtc))
-  //     display_planes.push_back(plane.get());
-  // }
-  // displays_.at(displ).Init(&display_planes);
+  DrmCrtc *crtc = drm->GetCrtcForDisplay(static_cast<int>(displ));
+  if (!crtc) {
+    ALOGE("Failed to get crtc for display %d", static_cast<int>(displ));
+    return HWC2::Error::BadDisplay;
+  }
+  std::vector<DrmPlane *> display_planes;
+  for (auto &plane : drm->planes()) {
+    if (plane->GetCrtcSupported(*crtc))
+      display_planes.push_back(plane.get());
+  }
+  displays_.at(displ).Init(&display_planes);
   return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::Init() {
-  int rv = resource_manager_.DummyInit(); // *Dummy
+  int rv = resource_manager_.Init();
+  // int rv = resource_manager_.DummyInit(); // *Dummy BVSG
   if (rv) {
     ALOGE("Can't initialize the resource manager %d", rv);
     return HWC2::Error::NoResources;
   }
 
   HWC2::Error ret = HWC2::Error::None;
-  ALOGI("BVSG:: resource_manager initialized");
+  // ALOGI("BVSG:: resource_manager initialized");
   for (int i = 0; i < resource_manager_.getDisplayCount(); i++) {
     ret = CreateDisplay(i, HWC2::DisplayType::Physical);
     if (ret != HWC2::Error::None) {
@@ -102,11 +103,11 @@ HWC2::Error DrmHwcTwo::Init() {
     }
   }
 
-  ALOGI("BVSG:: Dummy Display created");
-  // auto &drmDevices = resource_manager_.getDrmDevices();
-  // for (auto &device : drmDevices) {
-  //   device->RegisterHotplugHandler(new DrmHotplugHandler(this, device.get()));
-  // }
+  // ALOGI("BVSG:: Dummy Display created");
+  auto &drmDevices = resource_manager_.getDrmDevices();
+  for (auto &device : drmDevices) {
+    device->RegisterHotplugHandler(new DrmHotplugHandler(this, device.get()));
+  }
   return ret;
 }
 //----------------------------------BVSG/--------------------
@@ -208,13 +209,13 @@ HWC2::Error DrmHwcTwo::RegisterCallback(int32_t descriptor,
   switch (callback) {
     case HWC2::Callback::Hotplug: {
 
-      ALOGI("BVSG :: HotPlug Callback");
-      HandleDummyDisplayHotplug(0);
-      ALOGI("BVSG :: HandleDummyDisplayHotplug");
+      // ALOGI("BVSG :: HotPlug Callback");
+      // HandleDummyDisplayHotplug(0);
+      // ALOGI("BVSG :: HandleDummyDisplayHotplug");
 
-      // auto &drmDevices = resource_manager_.getDrmDevices();
-      // for (auto &device : drmDevices)
-      //   HandleInitialHotplugState(device.get());
+      auto &drmDevices = resource_manager_.getDrmDevices();
+      for (auto &device : drmDevices)
+        HandleInitialHotplugState(device.get());
 
       break;
     }
@@ -457,97 +458,114 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
 
 // ---------------/BVSG------------------------
 
-
+  // if (!configs) {
+  //       // *num_configs = mConfigs.size();
+  //       *num_configs = 1;
+  //       return Error::None;
+  //   }
+  //   // uint32_t numWritten = 0;
+  //   // for (const auto config : mConfigs) {
+  //   //     if (numWritten == *num_configs) {
+  //   //         break;
+  //   //     }
+  //   //     configs[numWritten] = config->getId();
+  //   //     ++numWritten;
+  //   // }
+  //   // *num_configs = numWritten;
+  //   ALOGI("BVSG", "GetDisplayConfigs");
+  //   configs[0] = 0;
+  //   *num_configs = 1;
+  //   return HWC2::Error::None;
 
 
 //----------------------BVSG/-------------------
-  // supported(__func__);
-  // // Since this callback is normally invoked twice (once to get the count, and
-  // // once to populate configs), we don't really want to read the edid
-  // // redundantly. Instead, only update the modes on the first invocation. While
-  // // it's possible this will result in stale modes, it'll all come out in the
-  // // wash when we try to set the active config later.
-  // if (!configs) {
-  //   int ret = connector_->UpdateModes();
-  //   if (ret) {
-  //     ALOGE("Failed to update display modes %d", ret);
-  //     return HWC2::Error::BadDisplay;
-  //   }
-  // }
+  supported(__func__);
+  // Since this callback is normally invoked twice (once to get the count, and
+  // once to populate configs), we don't really want to read the edid
+  // redundantly. Instead, only update the modes on the first invocation. While
+  // it's possible this will result in stale modes, it'll all come out in the
+  // wash when we try to set the active config later.
+  if (!configs) {
+    int ret = connector_->UpdateModes();
+    if (ret) {
+      ALOGE("Failed to update display modes %d", ret);
+      return HWC2::Error::BadDisplay;
+    }
+  }
 
-  // // Since the upper layers only look at vactive/hactive/refresh, height and
-  // // width, it doesn't differentiate interlaced from progressive and other
-  // // similar modes. Depending on the order of modes we return to SF, it could
-  // // end up choosing a suboptimal configuration and dropping the preferred
-  // // mode. To workaround this, don't offer interlaced modes to SF if there is
-  // // at least one non-interlaced alternative and only offer a single WxH@R
-  // // mode with at least the prefered mode from in DrmConnector::UpdateModes()
+  // Since the upper layers only look at vactive/hactive/refresh, height and
+  // width, it doesn't differentiate interlaced from progressive and other
+  // similar modes. Depending on the order of modes we return to SF, it could
+  // end up choosing a suboptimal configuration and dropping the preferred
+  // mode. To workaround this, don't offer interlaced modes to SF if there is
+  // at least one non-interlaced alternative and only offer a single WxH@R
+  // mode with at least the prefered mode from in DrmConnector::UpdateModes()
 
-  // // TODO: Remove the following block of code until AOSP handles all modes
-  // std::vector<DrmMode> sel_modes;
+  // TODO: Remove the following block of code until AOSP handles all modes
+  std::vector<DrmMode> sel_modes;
 
-  // // Add the preferred mode first to be sure it's not dropped
-  // auto mode = std::find_if(connector_->modes().begin(),
-  //                          connector_->modes().end(), [&](DrmMode const &m) {
-  //                            return m.id() ==
-  //                                   connector_->get_preferred_mode_id();
-  //                          });
-  // if (mode != connector_->modes().end())
-  //   sel_modes.push_back(*mode);
+  // Add the preferred mode first to be sure it's not dropped
+  auto mode = std::find_if(connector_->modes().begin(),
+                           connector_->modes().end(), [&](DrmMode const &m) {
+                             return m.id() ==
+                                    connector_->get_preferred_mode_id();
+                           });
+  if (mode != connector_->modes().end())
+    sel_modes.push_back(*mode);
 
-  // // Add the active mode if different from preferred mode
-  // if (connector_->active_mode().id() != connector_->get_preferred_mode_id())
-  //   sel_modes.push_back(connector_->active_mode());
+  // Add the active mode if different from preferred mode
+  if (connector_->active_mode().id() != connector_->get_preferred_mode_id())
+    sel_modes.push_back(connector_->active_mode());
 
-  // // Cycle over the modes and filter out "similar" modes, keeping only the
-  // // first ones in the order given by DRM (from CEA ids and timings order)
-  // for (const DrmMode &mode : connector_->modes()) {
-  //   // TODO: Remove this when 3D Attributes are in AOSP
-  //   if (mode.flags() & DRM_MODE_FLAG_3D_MASK)
-  //     continue;
+  // Cycle over the modes and filter out "similar" modes, keeping only the
+  // first ones in the order given by DRM (from CEA ids and timings order)
+  for (const DrmMode &mode : connector_->modes()) {
+    // TODO: Remove this when 3D Attributes are in AOSP
+    if (mode.flags() & DRM_MODE_FLAG_3D_MASK)
+      continue;
 
-  //   // TODO: Remove this when the Interlaced attribute is in AOSP
-  //   if (mode.flags() & DRM_MODE_FLAG_INTERLACE) {
-  //     auto m = std::find_if(connector_->modes().begin(),
-  //                           connector_->modes().end(),
-  //                           [&mode](DrmMode const &m) {
-  //                             return !(m.flags() & DRM_MODE_FLAG_INTERLACE) &&
-  //                                    m.h_display() == mode.h_display() &&
-  //                                    m.v_display() == mode.v_display();
-  //                           });
-  //     if (m == connector_->modes().end())
-  //       sel_modes.push_back(mode);
+    // TODO: Remove this when the Interlaced attribute is in AOSP
+    if (mode.flags() & DRM_MODE_FLAG_INTERLACE) {
+      auto m = std::find_if(connector_->modes().begin(),
+                            connector_->modes().end(),
+                            [&mode](DrmMode const &m) {
+                              return !(m.flags() & DRM_MODE_FLAG_INTERLACE) &&
+                                     m.h_display() == mode.h_display() &&
+                                     m.v_display() == mode.v_display();
+                            });
+      if (m == connector_->modes().end())
+        sel_modes.push_back(mode);
 
-  //     continue;
-  //   }
+      continue;
+    }
 
-  //   // Search for a similar WxH@R mode in the filtered list and drop it if
-  //   // another mode with the same WxH@R has already been selected
-  //   // TODO: Remove this when AOSP handles duplicates modes
-  //   auto m = std::find_if(sel_modes.begin(), sel_modes.end(),
-  //                         [&mode](DrmMode const &m) {
-  //                           return m.h_display() == mode.h_display() &&
-  //                                  m.v_display() == mode.v_display() &&
-  //                                  m.v_refresh() == mode.v_refresh();
-  //                         });
-  //   if (m == sel_modes.end())
-  //     sel_modes.push_back(mode);
-  // }
+    // Search for a similar WxH@R mode in the filtered list and drop it if
+    // another mode with the same WxH@R has already been selected
+    // TODO: Remove this when AOSP handles duplicates modes
+    auto m = std::find_if(sel_modes.begin(), sel_modes.end(),
+                          [&mode](DrmMode const &m) {
+                            return m.h_display() == mode.h_display() &&
+                                   m.v_display() == mode.v_display() &&
+                                   m.v_refresh() == mode.v_refresh();
+                          });
+    if (m == sel_modes.end())
+      sel_modes.push_back(mode);
+  }
 
-  // auto num_modes = static_cast<uint32_t>(sel_modes.size());
-  // if (!configs) {
-  //   *num_configs = num_modes;
-  //   return HWC2::Error::None;
-  // }
+  auto num_modes = static_cast<uint32_t>(sel_modes.size());
+  if (!configs) {
+    *num_configs = num_modes;
+    return HWC2::Error::None;
+  }
 
-  // uint32_t idx = 0;
-  // for (const DrmMode &mode : sel_modes) {
-  //   if (idx >= *num_configs)
-  //     break;
-  //   configs[idx++] = mode.id();
-  // }
-  // *num_configs = idx;
-  // return HWC2::Error::None;
+  uint32_t idx = 0;
+  for (const DrmMode &mode : sel_modes) {
+    if (idx >= *num_configs)
+      break;
+    configs[idx++] = mode.id();
+  }
+  *num_configs = idx;
+  return HWC2::Error::None;
 }
 
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayName(uint32_t *size, char *name) {
