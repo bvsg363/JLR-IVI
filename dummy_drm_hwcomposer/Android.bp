@@ -92,7 +92,7 @@ cc_library_static {
 }
 
 cc_library_shared {
-    name: "hwcomposer.default",
+    name: "hwcomposer.dummy_drm_hwc",
     defaults: ["hwcomposer.dummy_drm_defaults"],
     whole_static_libs: ["dummy_drm_hwcomposer"],
     srcs: ["platform/platformdrmgeneric.cpp"],

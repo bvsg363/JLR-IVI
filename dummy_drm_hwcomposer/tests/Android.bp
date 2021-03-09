@@ -8,6 +8,6 @@ cc_test {
     vendor: true,
     header_libs: ["libhardware_headers"],
     static_libs: ["dummy_libdrmhwc_utils"],
-    shared_libs: ["hwcomposer.default"],
+    shared_libs: ["hwcomposer.dummy_drm_hwc"],
     include_dirs: ["hardware/libhardware/modules/dummy_drm_hwcomposer/include"],
 }

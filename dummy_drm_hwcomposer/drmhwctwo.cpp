@@ -472,7 +472,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
   //   //     ++numWritten;
   //   // }
   //   // *num_configs = numWritten;
-  //   ALOGI("BVSG", "GetDisplayConfigs");
+  //   ALOGI("GetDisplayConfigs");
   //   configs[0] = 0;
   //   *num_configs = 1;
   //   return HWC2::Error::None;
